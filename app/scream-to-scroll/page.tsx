@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAudioInput } from "@/components/scream/useAudioInput";
 import { VUMeter } from "@/components/scream/VUMeter";
 import { Knob } from "@/components/scream/Knob";
@@ -11,19 +11,57 @@ import Link from "next/link";
 export default function ScreamToScroll() {
   const { volume, isListening, startListening, stopListening } = useAudioInput();
   const [threshold, setThreshold] = useState(50);
-  const [shouldScroll, setShouldScroll] = useState(false);
+  const [scrollTrigger, setScrollTrigger] = useState(0); // Increment to trigger scroll
   const [isDarkMode, setIsDarkMode] = useState(true);
+  
+  // Track how long scream has been sustained
+  const screamStartRef = useRef<number | null>(null);
+  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScrollTimeRef = useRef<number>(0);
 
-  // Trigger scroll when volume hits threshold
+  // Scream detection and scroll logic
   useEffect(() => {
-    if (isListening && volume >= threshold && !shouldScroll) {
-      setShouldScroll(true);
+    const isScreaming = isListening && volume >= threshold;
+    const now = Date.now();
+    
+    if (isScreaming) {
+      // Start tracking scream duration
+      if (screamStartRef.current === null) {
+        screamStartRef.current = now;
+        
+        // Trigger first scroll immediately (debounced by 500ms minimum)
+        if (now - lastScrollTimeRef.current > 500) {
+          setScrollTrigger(prev => prev + 1);
+          lastScrollTimeRef.current = now;
+        }
+      }
+      
+      // Check scream duration for continuous scrolling
+      const screamDuration = now - screamStartRef.current;
+      
+      // If screaming for more than 800ms, start rapid scrolling
+      if (screamDuration > 800 && !scrollIntervalRef.current) {
+        scrollIntervalRef.current = setInterval(() => {
+          setScrollTrigger(prev => prev + 1);
+          lastScrollTimeRef.current = Date.now();
+        }, 400); // Fast scroll every 400ms during sustained scream
+      }
+    } else {
+      // Reset when not screaming
+      screamStartRef.current = null;
+      
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
     }
-  }, [volume, threshold, isListening, shouldScroll]);
 
-  const handleScrollComplete = () => {
-    setShouldScroll(false);
-  };
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, [volume, threshold, isListening]);
 
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
@@ -31,7 +69,7 @@ export default function ScreamToScroll() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex overflow-hidden">
+    <div className="h-screen bg-background text-foreground flex overflow-hidden">
       {/* Left Sidebar - Controls */}
       <aside className="w-80 border-r border-border bg-card p-6 flex flex-col gap-8 z-20 shadow-xl">
         <div className="flex items-center gap-2 text-primary">
@@ -85,7 +123,7 @@ export default function ScreamToScroll() {
       {/* Center - Feed */}
       <main className="flex-1 relative bg-neutral-900/50 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
-        <ImageFeed shouldScroll={shouldScroll} onScrollComplete={handleScrollComplete} />
+        <ImageFeed scrollTrigger={scrollTrigger} />
         
         {/* Overlay for "Scream Now" */}
         {!isListening && (
@@ -126,15 +164,15 @@ export default function ScreamToScroll() {
             <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
               <li>Allow microphone access</li>
               <li>Set the sensitivity threshold</li>
-              <li>Scream, clap, or yell</li>
-              <li>Watch the feed scroll</li>
+              <li>Short scream = one scroll</li>
+              <li>Long scream = fast scrolling</li>
             </ul>
           </div>
 
           <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500">
             <h3 className="font-bold text-sm mb-1">Pro Tip</h3>
             <p className="text-xs opacity-90">
-              Short, sharp noises work best for snapping to the next image. Continuous screaming might cause motion sickness.
+              Short, sharp noises work best for precise navigation. Hold the scream for rapid browsing!
             </p>
           </div>
         </div>
