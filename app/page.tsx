@@ -55,7 +55,7 @@ const projects = [
     color: "text-red-600",
   },
   {
-    id: "introvert-social-media",
+    id: "introvert-social",
     title: "Introvert Social",
     description: "A social network with absolutely no interaction capabilities.",
     icon: Ghost,
