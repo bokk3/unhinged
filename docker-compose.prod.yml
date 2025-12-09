@@ -1,12 +1,9 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runner
+    image: 3bok/unhinged:latest
     restart: always
     ports:
-      - "3000:3000"
+      - "3025:3000"
     environment:
       - NODE_ENV=production
     volumes:
